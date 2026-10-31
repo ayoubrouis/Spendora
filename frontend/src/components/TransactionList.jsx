@@ -11,7 +11,9 @@ export default function TransactionList({
   page,
   onPageChange,
   deletingId,
+  updatingId,
   onDelete,
+  onEdit,
 }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
@@ -155,15 +157,26 @@ export default function TransactionList({
                       {formatAmount(Number(transaction.amount))}
                     </td>
                     <td className="action-cell">
-                      <button
-                        aria-label={`Delete ${transaction.title}`}
-                        className="delete-button"
-                        disabled={deletingId === transaction._id}
-                        onClick={() => onDelete(transaction)}
-                        type="button"
-                      >
-                        {deletingId === transaction._id ? "Deleting…" : "Delete"}
-                      </button>
+                      <div className="action-group">
+                        <button
+                          aria-label={`Edit ${transaction.title}`}
+                          className="edit-button"
+                          disabled={(updatingId === transaction._id) || (deletingId === transaction._id)}
+                          onClick={() => onEdit?.(transaction)}
+                          type="button"
+                        >
+                          {updatingId === transaction._id ? "Saving…" : "Edit"}
+                        </button>
+                        <button
+                          aria-label={`Delete ${transaction.title}`}
+                          className="delete-button"
+                          disabled={deletingId === transaction._id || updatingId === transaction._id}
+                          onClick={() => onDelete(transaction)}
+                          type="button"
+                        >
+                          {deletingId === transaction._id ? "Deleting…" : "Delete"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

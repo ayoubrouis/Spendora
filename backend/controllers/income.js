@@ -22,7 +22,7 @@ exports.addIncome = async (req, res) => {
             return res.status(400).json({error: "Amount should be a positive number"})
         }
         await income.save()
-        return res.status(201).json({message: "Income added successfully"})
+        return res.status(201).json({message: "Income added successfully", income})
     }catch (error) {
         return res.status(500).json({error: error.message})
     }
@@ -45,6 +45,34 @@ exports.deleteIncomes = async (req, res) => {
             return res.status(404).json({ error: "Income not found." })
         }
         return res.status(200).json({message: "Income deleted successfully"})
+    } catch (error) {
+        return res.status(500).json({error: error.message})
+    }
+}
+
+exports.updateIncome = async (req, res) => {
+    const {id} = req.params;
+    const {title, amount, category, description, date} = req.body
+
+    try {
+        if(!title || !amount || !category || !date) {
+            return res.status(400).json({error: "All fields are required"})
+        }
+        if(amount <= 0 || typeof amount !== "number") {
+            return res.status(400).json({error: "Amount should be a positive number"})
+        }
+
+        const income = await IncomeSchema.findOneAndUpdate(
+            { _id: id, owner: req.user._id },
+            { title, amount, category, description, date },
+            { new: true, runValidators: true }
+        )
+
+        if (!income) {
+            return res.status(404).json({error: "Income not found."})
+        }
+
+        return res.status(200).json({message: "Income updated successfully", income})
     } catch (error) {
         return res.status(500).json({error: error.message})
     }

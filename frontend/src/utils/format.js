@@ -19,6 +19,11 @@ export function formatDate(date) {
 }
 
 export function toDateInputValue(date = new Date()) {
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  const parsedDate = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  const localDate = new Date(parsedDate.getTime() - parsedDate.getTimezoneOffset() * 60_000);
   return localDate.toISOString().slice(0, 10);
 }

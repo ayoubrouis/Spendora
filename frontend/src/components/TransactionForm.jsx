@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toDateInputValue } from "../utils/format.js";
 
 const emptyValues = () => ({
@@ -9,7 +9,7 @@ const emptyValues = () => ({
   date: toDateInputValue(),
 });
 
-export default function TransactionForm({ onSubmit, submitting, transactions = [] }) {
+export default function TransactionForm({ onSubmit, submitting, transactions = [], editTransaction = null, onCancelEdit = null }) {
   const [type, setType] = useState("expense");
   const [values, setValues] = useState(emptyValues);
   const [error, setError] = useState("");
@@ -22,6 +22,24 @@ export default function TransactionForm({ onSubmit, submitting, transactions = [
       )].sort((first, second) => first.localeCompare(second)),
     [transactions],
   );
+
+  useEffect(() => {
+    if (editTransaction) {
+      setType(editTransaction.type || "expense");
+      setValues({
+        title: editTransaction.title || "",
+        amount: editTransaction.amount ?? "",
+        category: editTransaction.category || "",
+        description: editTransaction.description || "",
+        date: editTransaction.date ? toDateInputValue(editTransaction.date) : toDateInputValue(),
+      });
+      setError("");
+    } else {
+      setType("expense");
+      setValues(emptyValues());
+      setError("");
+    }
+  }, [editTransaction]);
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -63,19 +81,26 @@ export default function TransactionForm({ onSubmit, submitting, transactions = [
         category: values.category.trim(),
         description: values.description.trim(),
       });
-      setValues(emptyValues());
+      if (!editTransaction) {
+        setValues(emptyValues());
+      }
     } catch (submitError) {
       setError(submitError.message);
     }
   }
 
   return (
-    <section className="form-panel" aria-labelledby="form-title">
+    <section className="form-panel" id="transaction-form" aria-labelledby="form-title">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">New entry</p>
-          <h2 id="form-title">Add a transaction</h2>
+          <p className="eyebrow">{editTransaction ? "Update entry" : "New entry"}</p>
+          <h2 id="form-title">{editTransaction ? "Edit transaction" : "Add a transaction"}</h2>
         </div>
+        {editTransaction && onCancelEdit && (
+          <button className="secondary-button" type="button" onClick={onCancelEdit} disabled={submitting}>
+            Cancel edit
+          </button>
+        )}
       </div>
 
       <div className="type-switch" role="group" aria-label="Transaction type">
@@ -84,7 +109,7 @@ export default function TransactionForm({ onSubmit, submitting, transactions = [
             className={type === item ? "type-option selected" : "type-option"}
             key={item}
             onClick={() => setType(item)}
-            disabled={submitting}
+            disabled={submitting || Boolean(editTransaction)}
             type="button"
             aria-pressed={type === item}
           >
@@ -92,6 +117,9 @@ export default function TransactionForm({ onSubmit, submitting, transactions = [
           </button>
         ))}
       </div>
+      {editTransaction && (
+        <p className="edit-type-note">Transaction type can’t be changed while editing.</p>
+      )}
 
       <form className="transaction-form" onSubmit={handleSubmit} noValidate>
         <label>
@@ -175,7 +203,7 @@ export default function TransactionForm({ onSubmit, submitting, transactions = [
         )}
 
         <button className="primary-button submit-button" disabled={submitting} type="submit">
-          {submitting ? "Saving…" : "Save transaction"}
+          {submitting ? (editTransaction ? "Updating…" : "Saving…") : (editTransaction ? "Update transaction" : "Save transaction")}
         </button>
       </form>
     </section>

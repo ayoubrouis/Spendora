@@ -25,6 +25,15 @@ export function createTransaction(type, transaction) {
   });
 }
 
+export function updateTransaction(type, id, transaction) {
+  const route = type === "income" ? "/update-income" : "/update-expense";
+
+  return request(`${route}/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(transaction),
+  });
+}
+
 export function removeTransaction(type, id) {
   const route = type === "income" ? "/delete-income" : "/delete-expense";
 

@@ -22,7 +22,7 @@ exports.addExpense = async (req, res) => {
             return res.status(400).json({error: "Amount should be a positive number"})
         }
         await expense.save()
-        return res.status(201).json({message: "Expense added successfully"})
+        return res.status(201).json({message: "Expense added successfully", expense})
     }catch (error) {
         return res.status(500).json({error: error.message})
     }
@@ -45,6 +45,34 @@ exports.deleteExpenses = async (req, res) => {
             return res.status(404).json({ error: "Expense not found." })
         }
         return res.status(200).json({message: "Expense deleted successfully"})
+    } catch (error) {
+        return res.status(500).json({error: error.message})
+    }
+}
+
+exports.updateExpense = async (req, res) => {
+    const {id} = req.params;
+    const {title, amount, category, description, date} = req.body
+
+    try {
+        if(!title || !amount || !category || !date) {
+            return res.status(400).json({error: "All fields are required"})
+        }
+        if(amount <= 0 || typeof amount !== "number") {
+            return res.status(400).json({error: "Amount should be a positive number"})
+        }
+
+        const expense = await expenseSchema.findOneAndUpdate(
+            { _id: id, owner: req.user._id },
+            { title, amount, category, description, date },
+            { new: true, runValidators: true }
+        )
+
+        if (!expense) {
+            return res.status(404).json({error: "Expense not found."})
+        }
+
+        return res.status(200).json({message: "Expense updated successfully", expense})
     } catch (error) {
         return res.status(500).json({error: error.message})
     }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken } from "./api/client.js";
 import { clearToken, forgotPassword, getCurrentUser, login, logout, register, resetPassword, resendVerification, updateProfile, verifyEmail } from "./api/auth.js";
-import { createTransaction, getTransactions, removeTransaction } from "./api/transactions.js";
+import { createTransaction, getTransactions, removeTransaction, updateTransaction } from "./api/transactions.js";
 import AuthPage from "./components/AuthPage.jsx";
 import ForgotPasswordPage from "./components/ForgotPasswordPage.jsx";
 import InsightsPanel from "./components/InsightsPanel.jsx";
@@ -45,6 +45,9 @@ export default function App() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [updatingId, setUpdatingId] = useState("");
 
   useEffect(() => {
     const search = window.location.search;
@@ -171,6 +174,35 @@ export default function App() {
       window.removeEventListener("offline", updateOnlineStatus);
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    function closeOnDesktopResize() {
+      if (window.innerWidth > 820) {
+        setMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnDesktopResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnDesktopResize);
+    };
+  }, [menuOpen]);
 
   // Highlights whichever sidebar section is currently in view. The sections
   // only exist once the overview is rendered, so loading/loadError are observed
@@ -300,6 +332,42 @@ export default function App() {
     }
   }
 
+  async function handleSubmitTransaction(type, transaction) {
+    if (!editingTransaction) {
+      await handleCreate(type, transaction);
+      return;
+    }
+
+    setSubmitting(true);
+    setUpdatingId(editingTransaction._id);
+    setActionError("");
+    setActionMessage("");
+    try {
+      await updateTransaction(editingTransaction.type, editingTransaction._id, transaction);
+      setEditingTransaction(null);
+      setActionMessage("Transaction updated.");
+      reload();
+    } finally {
+      setSubmitting(false);
+      setUpdatingId("");
+    }
+  }
+
+  function handleEdit(transaction) {
+    setEditingTransaction(transaction);
+    setActionError("");
+    setActionMessage("");
+    document.getElementById("transaction-form")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  function handleCancelEdit() {
+    setEditingTransaction(null);
+    setUpdatingId("");
+  }
+
   async function handleDelete(transaction) {
     if (!window.confirm(`Delete "${transaction.title}"? This cannot be undone.`)) {
       return;
@@ -313,6 +381,9 @@ export default function App() {
       setTransactions((current) =>
         current.filter((item) => item._id !== transaction._id),
       );
+      if (editingTransaction?._id === transaction._id) {
+        setEditingTransaction(null);
+      }
       setActionMessage("Transaction deleted.");
     } catch (error) {
       setActionError(error.message);
@@ -393,7 +464,19 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {menuOpen && (
+        <button
+          aria-label="Close navigation"
+          className="drawer-backdrop"
+          onClick={() => setMenuOpen(false)}
+          type="button"
+        />
+      )}
+      <aside
+        aria-label="Main navigation"
+        className={`sidebar${menuOpen ? " sidebar-open" : ""}`}
+        id="primary-navigation"
+      >
         <a className="brand" href="#" aria-label="Spendora home">
           <span className="brand-symbol" aria-hidden="true">S</span>
           <span>spendora</span>
@@ -405,13 +488,21 @@ export default function App() {
               className={activeSection === section.id ? "nav-link active" : "nav-link"}
               href={`#${section.id}`}
               aria-current={activeSection === section.id ? "location" : undefined}
+              onClick={() => setMenuOpen(false)}
             >
               <span className="nav-indicator" aria-hidden="true" />
               {section.label}
             </a>
           ))}
         </nav>
-        <button className="sidebar-profile" onClick={() => setShowProfile(true)} type="button">
+        <button
+          className="sidebar-profile"
+          onClick={() => {
+            setMenuOpen(false);
+            setShowProfile(true);
+          }}
+          type="button"
+        >
           <span className="sidebar-avatar">
             {user.avatarUrl ? (
               <img alt="" src={user.avatarUrl} />
@@ -429,6 +520,18 @@ export default function App() {
 
       <main className="main-content" id="overview">
         <header className="topbar">
+          <button
+            aria-controls="primary-navigation"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+            className="menu-toggle"
+            onClick={() => setMenuOpen((open) => !open)}
+            type="button"
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
           <div className="mobile-brand">
             <span className="brand-symbol" aria-hidden="true">S</span>
             spendora
@@ -508,12 +611,16 @@ export default function App() {
                   page={page}
                   onPageChange={setPage}
                   deletingId={deletingId}
+                  updatingId={updatingId}
                   onDelete={handleDelete}
+                  onEdit={handleEdit}
                 />
                 <TransactionForm
-                  onSubmit={handleCreate}
+                  onSubmit={handleSubmitTransaction}
                   submitting={submitting}
                   transactions={transactions}
+                  editTransaction={editingTransaction}
+                  onCancelEdit={handleCancelEdit}
                 />
               </div>
               <section className="about-section" id="about" aria-labelledby="about-title">
