@@ -277,8 +277,8 @@ exports.updateProfile = async (req, res) => {
         return res.status(400).json({ error: "Display name must be 40 characters or less." });
     }
 
-    if (avatarUrl.length > 2048) {
-        return res.status(400).json({ error: "Avatar URL is too long." });
+    if (avatarUrl.length > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "Avatar is too large." });
     }
 
     try {

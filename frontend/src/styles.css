@@ -1581,12 +1581,66 @@ tbody tr:last-child td {
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid var(--color-line);
+  display: inline-grid;
+  place-items: center;
+  background: #edf4ef;
+  color: var(--color-accent-dark);
+  font-weight: 700;
+  flex: none;
+}
+
+.avatar-preview.large {
+  width: 76px;
+  height: 76px;
+  font-size: 28px;
 }
 
 .avatar-preview img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.avatar-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.avatar-button {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.text-button {
+  border: none;
+  background: none;
+  color: var(--color-accent-dark);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  padding: 0;
+}
+
+.modal-label {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .modal-email {
