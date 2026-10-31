@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken } from "./api/client.js";
-import { clearToken, getCurrentUser, login, logout, register, resendVerification, verifyEmail } from "./api/auth.js";
+import { clearToken, forgotPassword, getCurrentUser, login, logout, register, resetPassword, resendVerification, updateProfile, verifyEmail } from "./api/auth.js";
 import { createTransaction, getTransactions, removeTransaction } from "./api/transactions.js";
 import AuthPage from "./components/AuthPage.jsx";
+import ForgotPasswordPage from "./components/ForgotPasswordPage.jsx";
 import InsightsPanel from "./components/InsightsPanel.jsx";
+import ProfileModal from "./components/ProfileModal.jsx";
+import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
 import SummaryCards from "./components/SummaryCards.jsx";
 import TransactionForm from "./components/TransactionForm.jsx";
 import TransactionList from "./components/TransactionList.jsx";
@@ -13,6 +16,7 @@ const NAV_SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "insights", label: "Insights" },
   { id: "transactions", label: "Transactions" },
+  { id: "about", label: "About" },
 ];
 
 export default function App() {
@@ -34,12 +38,19 @@ export default function App() {
   const [verifying, setVerifying] = useState(
     () => Boolean(new URLSearchParams(window.location.search).get("verify")),
   );
+  const [resetting, setResetting] = useState(
+    () => Boolean(new URLSearchParams(window.location.search).get("reset")),
+  );
+  const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get("reset") || "");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
 
   useEffect(() => {
-    // A verification link is handled by the effect below; a session check here
-    // would race with it and could clear the token it just saved.
-    if (new URLSearchParams(window.location.search).get("verify")) {
+    const search = window.location.search;
+    // Verification/reset links are handled by their own effects; skip session check
+    // to avoid races (e.g. clearing the token a link just saved).
+    if (new URLSearchParams(search).get("verify") || new URLSearchParams(search).get("reset")) {
       setAuthLoading(false);
       return undefined;
     }
@@ -78,23 +89,32 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("verify");
-    if (!token) {
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get("verify");
+    const resetLinkToken = params.get("reset");
+
+    if (verifyToken) {
+      // Clean the token out of the address bar before doing anything else.
+      window.history.replaceState({}, "", window.location.pathname);
+      setVerifying(true);
+
+      verifyEmail(verifyToken)
+        .then((verifiedUser) => {
+          setAuthNotice("");
+          setUser(verifiedUser);
+          setActionMessage("Email verified. Welcome to Spendora.");
+        })
+        .catch((error) => setAuthNotice(error.message))
+        .finally(() => setVerifying(false));
       return undefined;
     }
 
-    // Clean the token out of the address bar before doing anything else.
-    window.history.replaceState({}, "", window.location.pathname);
-    setVerifying(true);
-
-    verifyEmail(token)
-      .then((verifiedUser) => {
-        setAuthNotice("");
-        setUser(verifiedUser);
-        setActionMessage("Email verified. Welcome to Spendora.");
-      })
-      .catch((error) => setAuthNotice(error.message))
-      .finally(() => setVerifying(false));
+    if (resetLinkToken) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setResetToken(resetLinkToken);
+      setResetting(true);
+      return undefined;
+    }
 
     return undefined;
   }, []);
@@ -315,12 +335,38 @@ export default function App() {
     );
   }
 
+  if (resetting) {
+    return (
+      <ResetPasswordPage
+        token={resetToken}
+        onSubmit={async (token, password) => {
+          await resetPassword(token, password);
+          setResetting(false);
+          setAuthNotice("Password updated. You can log in.");
+        }}
+        onBack={() => {
+          setResetting(false);
+          setResetToken("");
+        }}
+      />
+    );
+  }
+
   if (authLoading) {
     return (
       <main className="auth-loading-page" role="status">
         <span className="loading-dot" aria-hidden="true" />
         Checking your session…
       </main>
+    );
+  }
+
+  if (!user && showForgotPassword) {
+    return (
+      <ForgotPasswordPage
+        onSubmit={forgotPassword}
+        onBack={() => setShowForgotPassword(false)}
+      />
     );
   }
 
@@ -340,6 +386,7 @@ export default function App() {
       <AuthPage
         initialMessage={authNotice}
         onAuthenticate={handleAuthenticate}
+        onForgotPassword={() => setShowForgotPassword(true)}
       />
     );
   }
@@ -364,6 +411,19 @@ export default function App() {
             </a>
           ))}
         </nav>
+        <button className="sidebar-profile" onClick={() => setShowProfile(true)} type="button">
+          <span className="sidebar-avatar">
+            {user.avatarUrl ? (
+              <img alt="" src={user.avatarUrl} />
+            ) : (
+              (user.displayName || user.email || "U").charAt(0).toUpperCase()
+            )}
+          </span>
+          <span className="sidebar-profile-text">
+            <span className="sidebar-profile-name">{user.displayName || user.email}</span>
+            <span className="sidebar-profile-meta">Edit profile</span>
+          </span>
+        </button>
         <p className="sidebar-note">Personal money tracker</p>
       </aside>
 
@@ -456,10 +516,38 @@ export default function App() {
                   transactions={transactions}
                 />
               </div>
+              <section className="about-section" id="about" aria-labelledby="about-title">
+                <header className="about-header">
+                  <p className="eyebrow">About</p>
+                  <h2 id="about-title">About Spendora</h2>
+                </header>
+                <div className="about-card">
+                  <p>
+                    Spendora is a simple, personal money tracker. Record income and expenses, see where
+                    money goes, and keep an eye on your balance over time.
+                  </p>
+                  <p>
+                    It’s built to stay lightweight: email verification to cut down on fake accounts,
+                    password reset by link, local charts, CSV export, and just enough features to be
+                    useful without getting in your way.
+                  </p>
+                </div>
+              </section>
             </>
           )}
         </div>
       </main>
+      {showProfile && (
+        <ProfileModal
+          user={user}
+          onClose={() => setShowProfile(false)}
+          onSave={async (payload) => {
+            const result = await updateProfile(payload);
+            setUser((current) => ({ ...(current || {}), ...(result.user || payload) }));
+            setActionMessage("Profile updated.");
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -48,8 +48,41 @@ export function resendVerification(email) {
   );
 }
 
+export function forgotPassword(email) {
+  return request(
+    "/auth/forgot-password",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+    { notifySessionExpired: false },
+  );
+}
+
+export function resetPassword(token, password) {
+  return request(
+    "/auth/reset-password",
+    {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    },
+    { notifySessionExpired: false },
+  );
+}
+
 export function getCurrentUser() {
   return request("/auth/me", {}, { notifySessionExpired: false });
+}
+
+export function updateProfile(payload) {
+  return request(
+    "/auth/me",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    { notifySessionExpired: false },
+  );
 }
 
 export async function logout() {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function AuthPage({ onAuthenticate, initialMessage = "" }) {
+export default function AuthPage({ onAuthenticate, initialMessage = "", onForgotPassword }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,6 +108,17 @@ export default function AuthPage({ onAuthenticate, initialMessage = "" }) {
                 value={confirmPassword}
               />
             </label>
+          )}
+
+          {!isRegister && onForgotPassword && (
+            <button
+              className="auth-link"
+              disabled={submitting}
+              onClick={onForgotPassword}
+              type="button"
+            >
+              Forgot password?
+            </button>
           )}
 
           {error && <p className="auth-error" role="alert">{error}</p>}

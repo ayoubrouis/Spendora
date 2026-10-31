@@ -33,6 +33,27 @@ const userSchema = new mongoose.Schema(
         verificationExpiresAt: {
             type: Date,
             default: null
+        },
+        passwordResetTokenHash: {
+            type: String,
+            default: null,
+            select: false
+        },
+        passwordResetExpiresAt: {
+            type: Date,
+            default: null
+        },
+        displayName: {
+            type: String,
+            default: "",
+            trim: true,
+            maxlength: 40
+        },
+        avatarUrl: {
+            type: String,
+            default: "",
+            trim: true,
+            maxlength: 2048
         }
     },
     { timestamps: true }

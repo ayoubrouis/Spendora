@@ -6,11 +6,12 @@ const {
     timingSafeEqual
 } = require("node:crypto");
 const User = require("../models/userModel");
-const { isProduction, sendVerificationEmail } = require("../utils/mailer");
+const { isProduction, sendPasswordResetEmail, sendVerificationEmail } = require("../utils/mailer");
 
 const scrypt = promisify(scryptCallback);
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function derivePassword(password, salt) {
@@ -57,8 +58,19 @@ function issueVerification(user) {
     return token;
 }
 
+function issuePasswordReset(user) {
+    const token = randomBytes(32).toString("hex");
+    user.passwordResetTokenHash = hashToken(token);
+    user.passwordResetExpiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    return token;
+}
+
 function publicUser(user) {
-    return { email: user.email };
+    return {
+        email: user.email,
+        displayName: user.displayName || "",
+        avatarUrl: user.avatarUrl || ""
+    };
 }
 
 exports.register = async (req, res) => {
@@ -187,6 +199,102 @@ exports.resendVerification = async (req, res) => {
     } catch (error) {
         console.error("Verification resend failed:", error.message);
         return res.status(500).json({ error: "Could not send the verification email." });
+    }
+};
+
+exports.forgotPassword = async (req, res) => {
+    const body = req.body || {};
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+
+    if (!EMAIL_PATTERN.test(email)) {
+        return res.status(400).json({ error: "Enter a valid email address." });
+    }
+
+    try {
+        const user = await User.findOne({ email });
+        let resetUrl;
+
+        // Always answer the same way to avoid email enumeration.
+        if (user) {
+            const resetToken = issuePasswordReset(user);
+            await user.save();
+            resetUrl = await sendPasswordResetEmail(email, resetToken);
+        }
+
+        return res.status(200).json({
+            message: "If an account with that email exists, a password reset link has been sent.",
+            ...(!isProduction && resetUrl ? { resetUrl } : {})
+        });
+    } catch (error) {
+        console.error("Password reset request failed:", error.message);
+        return res.status(500).json({ error: "Could not send the password reset email." });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    const body = req.body || {};
+    const token = typeof body.token === "string" ? body.token : "";
+    const password = typeof body.password === "string" ? body.password : "";
+
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+        return res.status(400).json({ error: "This password reset link is not valid." });
+    }
+
+    if (password.length < 8 || password.length > 128) {
+        return res.status(400).json({ error: "Enter a password between 8 and 128 characters." });
+    }
+
+    try {
+        const user = await User.findOne({
+            passwordResetTokenHash: hashToken(token),
+            passwordResetExpiresAt: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: "This link is invalid or has expired. Request a new one." });
+        }
+
+        user.passwordHash = await hashPassword(password);
+        user.passwordResetTokenHash = null;
+        user.passwordResetExpiresAt = null;
+        // Force re-login after password change.
+        user.tokenHash = null;
+        await user.save();
+
+        return res.status(200).json({ message: "Password updated. You can log in with your new password." });
+    } catch (error) {
+        console.error("Password reset failed:", error.message);
+        return res.status(500).json({ error: "Could not reset the password." });
+    }
+};
+
+exports.updateProfile = async (req, res) => {
+    const body = req.body || {};
+    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+    const avatarUrl = typeof body.avatarUrl === "string" ? body.avatarUrl.trim() : "";
+
+    if (displayName.length > 40) {
+        return res.status(400).json({ error: "Display name must be 40 characters or less." });
+    }
+
+    if (avatarUrl.length > 2048) {
+        return res.status(400).json({ error: "Avatar URL is too long." });
+    }
+
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ error: "Account not found." });
+        }
+
+        user.displayName = displayName;
+        user.avatarUrl = avatarUrl;
+        await user.save();
+
+        return res.status(200).json({ user: publicUser(user) });
+    } catch (error) {
+        console.error("Profile update failed:", error.message);
+        return res.status(500).json({ error: "Could not update the profile." });
     }
 };
 
