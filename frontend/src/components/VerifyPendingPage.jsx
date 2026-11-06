@@ -1,10 +1,9 @@
 import { useState } from "react";
 
-export default function VerifyPendingPage({ email, initialDevUrl = "", onResend, onBack }) {
+export default function VerifyPendingPage({ email, onResend, onBack }) {
   const [message, setMessage] = useState(
     "Open the link in that email to finish creating your account.",
   );
-  const [devUrl, setDevUrl] = useState(initialDevUrl);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -14,9 +13,6 @@ export default function VerifyPendingPage({ email, initialDevUrl = "", onResend,
     try {
       const result = await onResend(email);
       setMessage(result.message || "A new verification link has been sent.");
-      if (result.verificationUrl) {
-        setDevUrl(result.verificationUrl);
-      }
     } catch (resendError) {
       setError(resendError.message);
     } finally {
@@ -45,12 +41,6 @@ export default function VerifyPendingPage({ email, initialDevUrl = "", onResend,
           The link works for 24 hours. Unverified accounts are removed automatically after that,
           so confirm soon.
         </p>
-
-        {devUrl && (
-          <a className="verify-dev-link" href={devUrl}>
-            Dev shortcut: open the verification link
-          </a>
-        )}
 
         {error && (
           <p className="auth-error" role="alert">

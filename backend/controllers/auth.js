@@ -6,7 +6,7 @@ const {
     timingSafeEqual
 } = require("node:crypto");
 const User = require("../models/userModel");
-const { isProduction, sendPasswordResetEmail, sendVerificationEmail } = require("../utils/mailer");
+const { sendPasswordResetEmail, sendVerificationEmail } = require("../utils/mailer");
 
 const scrypt = promisify(scryptCallback);
 
@@ -92,12 +92,11 @@ exports.register = async (req, res) => {
         });
         const verificationToken = issueVerification(user);
         await user.save();
-        const verificationUrl = await sendVerificationEmail(email, verificationToken);
+        await sendVerificationEmail(email, verificationToken);
 
         return res.status(201).json({
             message: "Check your inbox to verify your account.",
-            email,
-            ...(isProduction ? {} : { verificationUrl })
+            email
         });
     } catch (error) {
         if (error.code === 11000) {
@@ -182,19 +181,17 @@ exports.resendVerification = async (req, res) => {
 
     try {
         const user = await User.findOne({ email });
-        let verificationUrl;
 
         // Always answer the same way, whether or not the account exists, so
         // this endpoint can't be used to discover registered emails.
         if (user && user.emailVerified === false) {
             const verificationToken = issueVerification(user);
             await user.save();
-            verificationUrl = await sendVerificationEmail(email, verificationToken);
+            await sendVerificationEmail(email, verificationToken);
         }
 
         return res.status(200).json({
-            message: "If that account still needs verification, a new link has been sent.",
-            ...(!isProduction && verificationUrl ? { verificationUrl } : {})
+            message: "If that account still needs verification, a new link has been sent."
         });
     } catch (error) {
         console.error("Verification resend failed:", error.message);
@@ -212,18 +209,16 @@ exports.forgotPassword = async (req, res) => {
 
     try {
         const user = await User.findOne({ email });
-        let resetUrl;
 
         // Always answer the same way to avoid email enumeration.
         if (user) {
             const resetToken = issuePasswordReset(user);
             await user.save();
-            resetUrl = await sendPasswordResetEmail(email, resetToken);
+            await sendPasswordResetEmail(email, resetToken);
         }
 
         return res.status(200).json({
-            message: "If an account with that email exists, a password reset link has been sent.",
-            ...(!isProduction && resetUrl ? { resetUrl } : {})
+            message: "If an account with that email exists, a password reset link has been sent."
         });
     } catch (error) {
         console.error("Password reset request failed:", error.message);

@@ -1,8 +1,20 @@
-export function formatAmount(amount) {
-  return new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+import { BASE_CURRENCY, convertAmount, DEFAULT_CURRENCY } from "./currency.js";
+
+export function formatAmount(amount, currency = DEFAULT_CURRENCY, baseCurrency = BASE_CURRENCY) {
+  const converted = convertAmount(amount, currency, baseCurrency);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(converted);
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(converted);
+  }
 }
 
 export function formatDate(date) {

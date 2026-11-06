@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { balanceTrend, expenseByCategory, monthlyCashflow } from "../utils/analytics.js";
 import { formatAmount, formatDate } from "../utils/format.js";
+import { DEFAULT_CURRENCY } from "../utils/currency.js";
 
 const CATEGORY_COLORS = [
   "#32735b",
@@ -23,7 +24,7 @@ function ChartCard({ title, note, children }) {
   );
 }
 
-function CashflowChart({ months }) {
+function CashflowChart({ months, currency }) {
   const highest = Math.max(1, ...months.map((month) => Math.max(month.income, month.expense)));
 
   if (!months.some((month) => month.income > 0 || month.expense > 0)) {
@@ -42,7 +43,7 @@ function CashflowChart({ months }) {
                   height: `${(month.income / highest) * 100}%`,
                   animationDelay: `${index * 60}ms`,
                 }}
-                title={`Income ${formatAmount(month.income)}`}
+                title={`Income ${formatAmount(month.income, currency)}`}
               />
               <div
                 className="cashflow-bar cashflow-expense"
@@ -50,7 +51,7 @@ function CashflowChart({ months }) {
                   height: `${(month.expense / highest) * 100}%`,
                   animationDelay: `${index * 60 + 40}ms`,
                 }}
-                title={`Expenses ${formatAmount(month.expense)}`}
+                title={`Expenses ${formatAmount(month.expense, currency)}`}
               />
             </div>
             <span className="cashflow-label">{month.label}</span>
@@ -71,7 +72,7 @@ function CashflowChart({ months }) {
   );
 }
 
-function CategoryDonut({ categories }) {
+function CategoryDonut({ categories, currency }) {
   if (categories.total === 0) {
     return <p className="chart-empty">Record an expense to see where the money goes.</p>;
   }
@@ -99,7 +100,7 @@ function CategoryDonut({ categories }) {
           className="donut-svg"
           viewBox="0 0 140 140"
           role="img"
-          aria-label={`Expenses by category, total ${formatAmount(categories.total)}`}
+          aria-label={`Expenses by category, total ${formatAmount(categories.total, currency)}`}
         >
           <g transform="rotate(-90 70 70)">
             <circle
@@ -128,7 +129,7 @@ function CategoryDonut({ categories }) {
         </svg>
         <div className="donut-center">
           <span>Expenses</span>
-          <strong>{formatAmount(categories.total)}</strong>
+          <strong>{formatAmount(categories.total, currency)}</strong>
         </div>
       </div>
       <ul className="chart-legend legend-list">
@@ -144,7 +145,7 @@ function CategoryDonut({ categories }) {
   );
 }
 
-function TrendChart({ points }) {
+function TrendChart({ points, currency }) {
   if (points.length === 0) {
     return <p className="chart-empty">Your balance line appears after the first transaction.</p>;
   }
@@ -176,7 +177,7 @@ function TrendChart({ points }) {
       <div className="trend-summary">
         <span>Balance now</span>
         <strong className={latest.value >= 0 ? "amount-income" : "amount-expense"}>
-          {formatAmount(latest.value)}
+          {formatAmount(latest.value, currency)}
         </strong>
       </div>
       <svg className="trend-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Balance over time">
@@ -196,7 +197,7 @@ function TrendChart({ points }) {
   );
 }
 
-export default function InsightsPanel({ transactions }) {
+export default function InsightsPanel({ transactions, currency = DEFAULT_CURRENCY }) {
   const months = useMemo(() => monthlyCashflow(transactions, 6), [transactions]);
   const categories = useMemo(() => expenseByCategory(transactions, 5), [transactions]);
   const trend = useMemo(() => balanceTrend(transactions), [transactions]);
@@ -204,13 +205,13 @@ export default function InsightsPanel({ transactions }) {
   return (
     <section className="insights-grid" id="insights" aria-label="Spending insights">
       <ChartCard title="Monthly cash flow" note="Income vs expenses over the last 6 months">
-        <CashflowChart months={months} />
+        <CashflowChart months={months} currency={currency} />
       </ChartCard>
       <ChartCard title="Where money goes" note="Expenses grouped by category">
-        <CategoryDonut categories={categories} />
+        <CategoryDonut categories={categories} currency={currency} />
       </ChartCard>
       <ChartCard title="Balance over time" note="Running total as transactions are added">
-        <TrendChart points={trend} />
+        <TrendChart points={trend} currency={currency} />
       </ChartCard>
     </section>
   );

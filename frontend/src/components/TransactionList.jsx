@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { exportTransactionsToCsv } from "../utils/export.js";
 import { formatAmount, formatDate } from "../utils/format.js";
+import { DEFAULT_CURRENCY } from "../utils/currency.js";
 
 const PAGE_SIZE = 8;
 
 export default function TransactionList({
   transactions,
+  currency = DEFAULT_CURRENCY,
   filter,
   onFilterChange,
   page,
@@ -154,7 +156,7 @@ export default function TransactionList({
                     <td>{formatDate(transaction.date)}</td>
                     <td className={`amount-cell amount-${transaction.type}`}>
                       {transaction.type === "income" ? "+" : "−"}
-                      {formatAmount(Number(transaction.amount))}
+                      {formatAmount(Number(transaction.amount), currency)}
                     </td>
                     <td className="action-cell">
                       <div className="action-group">
@@ -195,7 +197,7 @@ export default function TransactionList({
                 }
               >
                 {filteredTotal > 0 ? "+" : filteredTotal < 0 ? "−" : ""}
-                {formatAmount(Math.abs(filteredTotal))}
+                {formatAmount(Math.abs(filteredTotal), currency)}
               </strong>
             </p>
             <div className="pagination-actions">

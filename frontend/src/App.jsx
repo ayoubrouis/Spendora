@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken } from "./api/client.js";
 import { clearToken, forgotPassword, getCurrentUser, login, logout, register, resetPassword, resendVerification, updateProfile, verifyEmail } from "./api/auth.js";
 import { createTransaction, getTransactions, removeTransaction, updateTransaction } from "./api/transactions.js";
+import { CURRENCIES, getStoredCurrency, setStoredCurrency } from "./utils/currency.js";
 import AuthPage from "./components/AuthPage.jsx";
 import ForgotPasswordPage from "./components/ForgotPasswordPage.jsx";
 import InsightsPanel from "./components/InsightsPanel.jsx";
@@ -48,6 +49,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [updatingId, setUpdatingId] = useState("");
+  const [currency, setCurrency] = useState(getStoredCurrency);
 
   useEffect(() => {
     const search = window.location.search;
@@ -285,10 +287,7 @@ export default function App() {
     if (mode === "register") {
       const result = await register(email, password);
       setAuthNotice("");
-      setPendingVerification({
-        email: result.email || email,
-        devUrl: result.verificationUrl || "",
-      });
+      setPendingVerification({ email: result.email || email });
       return;
     }
 
@@ -299,7 +298,7 @@ export default function App() {
     } catch (error) {
       // 403 means the password was right but the email is not verified yet.
       if (error.status === 403) {
-        setPendingVerification({ email, devUrl: "" });
+        setPendingVerification({ email });
         return;
       }
       throw error;
@@ -397,6 +396,12 @@ export default function App() {
     setPage(1);
   }
 
+  function handleCurrencyChange(event) {
+    const nextCurrency = event.target.value;
+    setCurrency(nextCurrency);
+    setStoredCurrency(nextCurrency);
+  }
+
   if (verifying) {
     return (
       <main className="auth-loading-page" role="status" aria-live="polite">
@@ -445,7 +450,6 @@ export default function App() {
     return (
       <VerifyPendingPage
         email={pendingVerification.email}
-        initialDevUrl={pendingVerification.devUrl}
         onResend={resendVerification}
         onBack={() => setPendingVerification(null)}
       />
@@ -543,6 +547,16 @@ export default function App() {
               day: "numeric",
             }).format(new Date())}
           </p>
+          <label className="currency-control">
+            <span className="visually-hidden">Currency</span>
+            <select aria-label="Currency" value={currency} onChange={handleCurrencyChange}>
+              {CURRENCIES.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <span className="account-email">{user.email}</span>
           <span className={`connection-status ${online ? "is-online" : "is-offline"}`}>
             <span aria-hidden="true" />
@@ -598,14 +612,15 @@ export default function App() {
             </div>
           ) : (
             <>
-              <SummaryCards totals={totals} />
+              <SummaryCards totals={totals} currency={currency} />
               {loading && transactions.length > 0 && (
                 <p className="refreshing-note" role="status">Updating transaction list…</p>
               )}
-              <InsightsPanel transactions={transactions} />
+              <InsightsPanel transactions={transactions} currency={currency} />
               <div className="content-grid">
                 <TransactionList
                   transactions={transactions}
+                  currency={currency}
                   filter={filter}
                   onFilterChange={updateFilter}
                   page={page}
